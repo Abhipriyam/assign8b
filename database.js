@@ -70,12 +70,16 @@ app.get("/products/edit/:id", (req, res) => {
 });
 
 app.get("/purchases", (req, res) => {
-  const productid = parseInt(req.query.productid);
-  const shopid = parseInt(req.query.shopid);
+  const productidArray = req.query.product ? req.query.product.split(",") : [];
+  let shopid = req.query.shop;
   const sort = req.query.sort; // Added sort parameter
+  // Convert the array elements to integers
 
-  // If neither product ID nor shop ID is provided, send all purchases
-  if (!productid && !shopid) {
+  const productIDs = productidArray.map(item => item.substring(2));
+  
+  shopid = shopid?.substring(2);
+
+  if (!productIDs.length && !shopid) {
     client.query(
       `
             SELECT purchases.*, products.productname, shops.shopname as shopname
@@ -99,14 +103,15 @@ app.get("/purchases", (req, res) => {
   let whereClause = "";
   let values = [];
 
-  if (productid && shopid) {
-    // If both product ID and shop ID are provided
-    whereClause = "WHERE purchases.productid = $1 AND purchases.shopid = $2";
-    values = [productid, shopid];
-  } else if (productid) {
-    // If only product ID is provided
-    whereClause = "WHERE purchases.productid = $1";
-    values = [productid];
+  if (productIDs.length && shopid) {
+    // If both product ID array and shop ID are provided
+    whereClause =
+      "WHERE purchases.productid = ANY($1) AND purchases.shopid = $2";
+    values = [productIDs, shopid];
+  } else if (productIDs.length) {
+    // If only product ID array is provided
+    whereClause = "WHERE purchases.productid = ANY($1)";
+    values = [productIDs];
   } else if (shopid) {
     // If only shop ID is provided
     whereClause = "WHERE purchases.shopid = $1";
